@@ -37,3 +37,35 @@ fi
 git -C "$ROOT" config core.hooksPath .githooks
 echo "✓ git hooks on (.githooks): secret scan before commit; branch guard + scripts/local-ci.sh quick before push"
 echo "  gitleaks at $bin"
+
+# A security policy (GitHub shows it on the Security tab). An existing one is never touched.
+if [ ! -f "$ROOT/SECURITY.md" ] && [ ! -f "$ROOT/.github/SECURITY.md" ] && [ ! -f "$ROOT/docs/SECURITY.md" ]; then
+  branch="$(git -C "$ROOT" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"
+  cat > "$ROOT/SECURITY.md" <<EOF
+# Security policy
+
+## Reporting a vulnerability
+
+This repository is private. **Don't open an issue or pull request for a security problem** —
+they are visible to every collaborator. Tell the repository owner directly and privately, with
+what an attacker can do, the steps or a proof of concept, and the affected component or host.
+Never test against live systems in a way that changes or exposes real data.
+
+You'll get an acknowledgement as soon as the report is read, and a fix or a decision once it
+has been triaged. Please keep the details private until a fix is released.
+
+## Supported versions
+
+Only the latest default branch (\`${branch#origin/}\`) gets security fixes; older commits, tags and
+forks don't.
+
+## Scope
+
+Everything in this repository and what it deploys. In scope: anything that lets someone read
+data, run code, or act with access they shouldn't have. Never commit secrets: credentials live
+in environment variables or the platform's secret store, \`.env\` files are git-ignored, and a
+gitleaks scan runs on pre-commit where hooks are installed. Dependabot watches the
+dependencies; its alerts are triaged as part of this policy.
+EOF
+  echo "✓ SECURITY.md written (review the Scope section, then commit it)"
+fi
