@@ -66,6 +66,8 @@ similar_names = "allow"
 too_many_lines = "allow"
 struct_excessive_bools = "allow"
 fn_params_excessive_bools = "allow"
+# clippy 1.99 (new lint): assert!(x.is_empty()) reads fine in tests
+assert_is_empty = "allow"
 dbg_macro = "warn"
 unwrap_used = "warn"
 expect_used = "warn"
