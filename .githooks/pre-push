@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Before anything leaves this clone:
+#   1. the default branch can't be deleted or force-pushed (rewritten);
+#   2. scripts/local-ci.sh test must pass — UI typecheck/tests/build, rustfmt,
+#      cargo-deny, clippy, every Rust test, cross-checks (all in Docker).
+# Urgent and certain: SKIP_LOCAL_CI=1 git push skips step 2 only.
+set -euo pipefail
+
+default="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"
+protected="^refs/heads/${default#origin/}$"
+zero=0000000000000000000000000000000000000000
+pushing=false
+
+while read -r _local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] || pushing=true
+  [[ "$remote_ref" =~ $protected ]] || continue
+  branch="${remote_ref#refs/heads/}"
+  if [ "$local_sha" = "$zero" ]; then
+    echo "✗ Push blocked: '$branch' is protected and can't be deleted." >&2
+    exit 1
+  fi
+  # A new branch on the remote, or a fast-forward: allowed.
+  [ "$remote_sha" = "$zero" ] && continue
+  if ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    echo "✗ Push blocked: '$branch' on the remote has commits you don't have. Run 'git pull --rebase' first." >&2
+    exit 1
+  fi
+  if ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+    echo "✗ Push blocked: that would rewrite '$branch' (force push). Protected branches only move forward." >&2
+    exit 1
+  fi
+done
+
+if $pushing && [ "${SKIP_LOCAL_CI:-}" != 1 ]; then
+  "$(git rev-parse --show-toplevel)/scripts/local-ci.sh" test || {
+    echo "✗ Push blocked: scripts/local-ci.sh test failed (above)." >&2
+    exit 1
+  }
+fi
