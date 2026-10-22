@@ -11,7 +11,11 @@ yanked = "deny"
 # Unmaintained notices only for our direct dependencies; transitive ones (Tauri,
 # GTK) are tracked upstream. Vulnerabilities fail for every crate.
 unmaintained = "workspace"
-ignore = []
+ignore = [
+  # glib 0.18 (unsound VariantStrIter) comes only from Tauri's Linux GTK3 stack:
+  # wry 0.57 (latest) pins gtk ^0.18 / webkit2gtk 2.0.2 (latest). Drop once wry moves on.
+  { id = "RUSTSEC-2024-0429", reason = "no fix: glib 0.18 pinned by wry/webkit2gtk (Tauri Linux), API not used" },
+]
 
 [licenses]
 version = 2
