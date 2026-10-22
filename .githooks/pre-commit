@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Push protection, client side: a commit that adds a secret is refused here,
-# before it exists. scripts/local-ci.sh (pre-push) scans the whole history too.
+# before it exists. CI on GitHub scans the whole history too.
 #
 # Enabled by scripts/install-git-hooks.sh (git config core.hooksPath .githooks).
 # A false positive: add its fingerprint to .gitleaksignore. Genuinely urgent

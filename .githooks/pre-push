@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
 # Before anything leaves this clone:
 #   1. the default branch can't be deleted or force-pushed (rewritten);
-#   2. scripts/local-ci.sh test must pass — UI typecheck/tests/build, rustfmt,
-#      cargo-deny, clippy, every Rust test, cross-checks (all in Docker).
-# Urgent and certain: SKIP_LOCAL_CI=1 git push skips step 2 only.
+# Checks (secrets, audits, Semgrep, tests, image builds) run on GitHub after the push, not
+# here: CI's "CI passed" gates merges. scripts/local-ci.sh is still there to run by hand.
 set -euo pipefail
 
 default="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"
 protected="^refs/heads/${default#origin/}$"
 zero=0000000000000000000000000000000000000000
-pushing=false
 
 while read -r _local_ref local_sha remote_ref remote_sha; do
-  [ "$local_sha" = "$zero" ] || pushing=true
   [[ "$remote_ref" =~ $protected ]] || continue
   branch="${remote_ref#refs/heads/}"
   if [ "$local_sha" = "$zero" ]; then
@@ -30,10 +27,3 @@ while read -r _local_ref local_sha remote_ref remote_sha; do
     exit 1
   fi
 done
-
-if $pushing && [ "${SKIP_LOCAL_CI:-}" != 1 ]; then
-  "$(git rev-parse --show-toplevel)/scripts/local-ci.sh" test || {
-    echo "✗ Push blocked: scripts/local-ci.sh test failed (above)." >&2
-    exit 1
-  }
-fi
