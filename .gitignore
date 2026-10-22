@@ -1,3 +1,80 @@
+# >>> project-setup: managed block (rerun setup-project.sh to refresh it; your own rules go below it and win) >>>
+# --- Environment & secrets -----------------------------------
+!.env.sample
+*.ppk
+id_ecdsa*
+.pgpass
+.htpasswd
+secrets/
+.secrets/
+*.tfvars
+!*.tfvars.example
+
+# --- AI assistant files --------------------------------------
+.amazonq/
+# Graph + generated audit / report / plan artifacts (transient, may contain findings)
+*-AUDIT.md
+*-REPORT.md
+*-PLAN.md
+
+# --- macOS ---------------------------------------------------
+.AppleDouble
+.LSOverride
+.TemporaryItems
+.DocumentRevisions-V100
+
+# --- Windows -------------------------------------------------
+[Dd]esktop.ini
+
+# --- Linux ---------------------------------------------------
+
+# --- Syncthing -----------------------------------------------
+.stfolder
+.stversions/
+*.sync-conflict-*
+
+# --- Editor / IDE --------------------------------------------
+.history/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+*.swn
+Session.vim
+.netrwhist
+\#*\#
+.\#*
+
+# --- Logs & temp ---------------------------------------------
+/logs/
+*.tmp
+*.orig
+*.rej
+/tmp/
+# --- Node.js -------------------------------------------------
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+.vercel/
+.output/
+coverage/
+.nyc_output/
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+# --- Rust ----------------------------------------------------
+target/
+**/*.rs.bk
+# <<< project-setup <<<
+
 # --- Build output --------------------------------------------------------
 /target/
 /output-build/
