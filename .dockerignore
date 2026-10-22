@@ -1,3 +1,149 @@
+# >>> project-setup: managed block (rerun setup-project.sh to refresh it; your own rules go below it and win) >>>
+# --- Environment & secrets -----------------------------------
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*.keystore
+**/*.kdbx
+**/*.ppk
+**/id_rsa*
+**/id_ed25519*
+**/id_ecdsa*
+**/.netrc
+**/.pgpass
+**/.htpasswd
+**/credentials.json
+**/service-account*.json
+**/secrets
+**/.secrets
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfvars
+!**/*.tfvars.example
+
+# --- AI assistant files --------------------------------------
+**/CLAUDE.md
+**/CLAUDE.local.md
+**/.claude
+**/AGENTS.md
+**/GEMINI.md
+**/.gemini
+**/.cursor
+**/.cursorrules
+**/.cursorignore
+**/.windsurf
+**/.windsurfrules
+**/.aider*
+**/.codex
+**/.continue
+**/.copilot
+**/.github/copilot-instructions.md
+**/.clinerules
+**/.roo
+**/.kiro
+**/.amazonq
+# Graph + generated audit / report / plan artifacts (transient, may contain findings)
+**/graphify-out
+**/*-AUDIT.md
+**/*-REPORT.md
+**/*-PLAN.md
+
+# --- macOS ---------------------------------------------------
+**/.DS_Store
+**/.DS_Store?
+**/._*
+**/.Spotlight-V100
+**/.Trashes
+**/.AppleDouble
+**/.LSOverride
+**/.fseventsd
+**/.TemporaryItems
+**/.DocumentRevisions-V100
+
+# --- Windows -------------------------------------------------
+**/Thumbs.db
+**/ehthumbs.db
+**/[Dd]esktop.ini
+**/$RECYCLE.BIN
+
+# --- Linux ---------------------------------------------------
+**/*~
+**/.directory
+**/.Trash-*
+**/.nfs*
+**/.fuse_hidden*
+
+# --- Syncthing -----------------------------------------------
+**/.stfolder
+**/.stversions
+**/*.sync-conflict-*
+
+# --- Editor / IDE --------------------------------------------
+**/.vscode
+**/.idea
+**/.history
+**/*.code-workspace
+**/*.sublime-project
+**/*.sublime-workspace
+**/*.swp
+**/*.swo
+**/*.swn
+**/Session.vim
+**/.netrwhist
+**/\#*\#
+**/.\#*
+
+# --- Logs & temp ---------------------------------------------
+**/*.log
+logs
+**/*.tmp
+**/*.bak
+**/*.orig
+**/*.rej
+tmp
+# --- Docker build context: VCS, CI and repo tooling (context root only: nested
+# .gitignore files are placeholders that keep directories such as Laravel's
+# bootstrap/cache alive in the image) ---------------------------------------
+.git
+.github
+.githooks
+.gitignore
+.dockerignore
+coverage
+.graphifyignore
+.prettierignore
+# --- Node.js -------------------------------------------------
+**/node_modules
+**/.npm
+**/.pnpm-store
+**/.yarn/*
+!**/.yarn/releases
+!**/.yarn/plugins
+**/.next
+**/.nuxt
+**/.svelte-kit
+**/.turbo
+**/.vercel
+**/.output
+**/coverage
+**/.nyc_output
+**/*.tsbuildinfo
+**/.eslintcache
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+# --- Rust ----------------------------------------------------
+**/target
+**/*.rs.bk
+# <<< project-setup <<<
+
 *
 !docker/bin/
 
