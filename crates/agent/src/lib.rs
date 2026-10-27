@@ -34,10 +34,21 @@ fn level(l: LogLevel) -> &'static str {
     }
 }
 
+/// GNOME (Mutter) has no Wayland data-control protocol, so the clipboard runs
+/// through its X11 bridge and arboard's fallback warning is expected, not a fault.
+fn gnome_wayland(desktop: Option<&str>, wayland_display: bool) -> bool {
+    wayland_display && desktop.is_some_and(|d| d.split(':').any(|s| s.eq_ignore_ascii_case("GNOME")))
+}
+
 /// Rotating log files (5 × daily) + stderr in debug builds.
-fn init_logging(dir: &std::path::Path, lvl: LogLevel) -> Option<tracing_appender::non_blocking::WorkerGuard> {
+fn init_logging(
+    dir: &std::path::Path,
+    lvl: LogLevel,
+    gnome: bool,
+) -> Option<tracing_appender::non_blocking::WorkerGuard> {
+    let quiet = if gnome { ",arboard::platform::linux=error" } else { "" };
     let filter = EnvFilter::try_from_env("NEXPINGDESK_LOG")
-        .unwrap_or_else(|_| EnvFilter::new(format!("warn,nexpingdesk={0},nexpingdesk_agent={0}", level(lvl))));
+        .unwrap_or_else(|_| EnvFilter::new(format!("warn,nexpingdesk={0},nexpingdesk_agent={0}{quiet}", level(lvl))));
     let _ = std::fs::create_dir_all(dir);
     let appender = tracing_appender::rolling::Builder::new()
         .rotation(tracing_appender::rolling::Rotation::DAILY)
@@ -105,8 +116,15 @@ pub fn run_agent() -> ExitCode {
     };
     let log_dir = nexpingdesk_platform::log_dir();
     let peek_level = store_peek_level(&store);
-    let _guard = init_logging(&log_dir, peek_level);
+    let gnome = gnome_wayland(
+        std::env::var("XDG_CURRENT_DESKTOP").ok().as_deref(),
+        std::env::var_os("WAYLAND_DISPLAY").is_some(),
+    );
+    let _guard = init_logging(&log_dir, peek_level, gnome);
     info!(version = agent::VERSION, "agent starting");
+    if gnome {
+        info!("GNOME Wayland: clipboard uses the X11 bridge (GNOME has no Wayland data-control protocol)");
+    }
 
     rt.block_on(async move {
         let ep = match Endpoint::default_for_user() {
@@ -156,4 +174,19 @@ fn store_peek_level(store: &ConfigStore) -> LogLevel {
 
 mod toml_peek {
     pub use nexpingdesk_config::__toml::Table;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::gnome_wayland;
+
+    #[test]
+    fn detects_gnome_wayland_only() {
+        assert!(gnome_wayland(Some("ubuntu:GNOME"), true));
+        assert!(gnome_wayland(Some("GNOME"), true));
+        assert!(!gnome_wayland(Some("ubuntu:GNOME"), false), "X11 session");
+        assert!(!gnome_wayland(Some("KDE"), true));
+        assert!(!gnome_wayland(Some("GNOME-Flashback"), true));
+        assert!(!gnome_wayland(None, true));
+    }
 }
