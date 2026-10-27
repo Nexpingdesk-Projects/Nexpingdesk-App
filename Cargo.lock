@@ -2809,7 +2809,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nexpingdesk-agent"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "nexpingdesk-clipboard",
  "nexpingdesk-config",
@@ -2829,7 +2829,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-app"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "nexpingdesk-agent",
  "nexpingdesk-config",
@@ -2853,7 +2853,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-clipboard"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "arboard",
  "objc2",
@@ -2867,7 +2867,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-config"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "directories",
  "getrandom 0.4.3",
@@ -2882,7 +2882,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "getrandom 0.4.3",
  "nexpingdesk-clipboard",
@@ -2906,7 +2906,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-input"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "evdev",
  "nexpingdesk-config",
@@ -2927,7 +2927,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-ipc"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "nexpingdesk-config",
  "nexpingdesk-proto",
@@ -2942,7 +2942,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-layout"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "nexpingdesk-proto",
  "proptest",
@@ -2951,7 +2951,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-net"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "argon2",
  "blake3",
@@ -2975,7 +2975,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-platform"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "directories",
  "gethostname",
@@ -2989,7 +2989,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-proto"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "postcard",
  "serde",
@@ -2998,7 +2998,7 @@ dependencies = [
 
 [[package]]
 name = "nexpingdesk-transfer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "blake3",
  "directories",
@@ -6753,7 +6753,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "zip",
 ]
