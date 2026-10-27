@@ -1,0 +1,6 @@
+# actionlint: GitHub-hosted runner labels newer than actionlint's built-in list.
+# shortcut: actionlint v1.7.12 predates ubuntu-26.04, drop these once a release knows them.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
+    - ubuntu-26.04-arm
