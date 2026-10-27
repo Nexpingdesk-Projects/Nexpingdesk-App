@@ -243,8 +243,15 @@ jobs:
           TESTED_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # Only the commit that was tested: refused if the branch moved since.
-          gh pr merge "$PR" --squash --delete-branch --match-head-commit "$TESTED_SHA"
-          gh workflow run ci.yml --ref main
+          # --auto: merges now when GitHub allows it, else GitHub merges it once the rules are met.
+          gh pr merge "$PR" --auto --squash --delete-branch --match-head-commit "$TESTED_SHA"
+          # shortcut: a merge GitHub completes later (auto-merge) emits no push event, so
+          # main CI/deploy then waits for the next push; only dispatch once it has merged.
+          if [ "$(gh pr view "$PR" --json state -q .state)" = MERGED ]; then
+            gh workflow run ci.yml --ref main
+          else
+            echo "::warning::auto-merge queued for #$PR; run CI on main by hand once it lands."
+          fi
       - name: Major update — left for review
         if: steps.meta.outputs.update-type == 'version-update:semver-major'
         run: echo "::notice::Major version update — review and merge it by hand."
