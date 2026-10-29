@@ -1,0 +1,80 @@
+# Security scan: secrets + dependency/misconfig vulnerabilities (Trivy only).
+# Drop this in a repo as .github/workflows/security.yml
+# Works on private AND public repos (no GitHub Advanced Security, no license).
+# Findings -> job summary, and an auto-deduped GitHub issue with the Trivy table.
+name: security
+
+on:
+  push:
+    branches: [main, master, production]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"   # WEEKLY MONDAY 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan (Trivy — vulns, secrets, misconfig)
+        id: trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        continue-on-error: true
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: table
+          output: trivy.txt
+          exit-code: "1"
+
+      - name: Summarize findings
+        if: always()
+        run: |
+          echo "## Security scan" >> "$GITHUB_STEP_SUMMARY"
+          echo "- trivy (HIGH/CRITICAL vulns, secrets, misconfig): \`${{ steps.trivy.outcome }}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ -s trivy.txt ]; then
+            { echo '```'; cat trivy.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No HIGH/CRITICAL findings." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Open or update issue on findings
+        if: github.event_name != 'pull_request' && steps.trivy.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const title = "Security scan findings";
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            let trivy = "";
+            try { trivy = fs.readFileSync("trivy.txt", "utf8").slice(0, 55000); } catch (e) {}
+            const body = [
+              "Automated security scan found HIGH/CRITICAL issues on `" + context.sha.slice(0, 7) + "`.",
+              "",
+              "Run log: " + run,
+              trivy ? "\n<details><summary>Trivy findings</summary>\n\n```\n" + trivy + "\n```\n</details>" : "",
+            ].join("\n");
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: "open", labels: "security",
+            });
+            const hit = open.find(i => i.title === title);
+            if (hit) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: hit.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ["security"],
+              });
+            }
