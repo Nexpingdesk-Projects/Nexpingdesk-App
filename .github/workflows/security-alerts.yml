@@ -91,12 +91,6 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
-      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
-        if: steps.stack.outputs.composer != ''
-        with:
-          php-version: "8.4"
-          tools: composer:v2
-          coverage: none
 
       - name: Dependency advisories (npm, composer)
         env:
