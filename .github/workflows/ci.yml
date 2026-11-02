@@ -439,6 +439,7 @@ jobs:
     environment: release
     permissions:
       contents: write # create the GitHub release
+      actions: write # rebuild Nightly when main moved during this run
       id-token: write # sign the build-provenance attestation
       attestations: write # store the attestation
     steps:
@@ -479,6 +480,13 @@ jobs:
           if [ "$IS_TAG" = true ]; then
             gh release create "$GITHUB_REF_NAME" output-build/* --title "Nexpingdesk $GITHUB_REF_NAME" --generate-notes --verify-tag
           else
+            # GITHUB_TOKEN gets a 403 tagging a commit whose workflow files differ from main,
+            # and auto-merged PRs start no run to cancel this one: keep Nightly, rebuild from main.
+            if [ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" != "$GITHUB_SHA" ]; then
+              echo "::notice::main moved past ${GITHUB_SHA::7}: keeping Nightly and rebuilding from main."
+              gh workflow run ci.yml --ref main
+              exit 0
+            fi
             gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
             gh release create nightly output-build/* --prerelease --target "$GITHUB_SHA" --title "Nightly" \
               --notes "Latest build of main (${GITHUB_SHA::7}): macOS Apple Silicon, Windows x64 (installer, offline installer, portable), Linux x64 and ARM64. Verify: $verify."
