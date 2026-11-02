@@ -1,0 +1,127 @@
+# Security alerts — the private-repository stand-in for GitHub's code-scanning
+# and secret-scanning alert lists (not available on a Free-plan organization).
+#
+# Daily, and after every push to main, it runs the scanners over the whole
+# repository and mirrors their findings into issues labelled "security-alert"
+# (scripts/security-alerts.py): new finding → issue opened, fixed → closed,
+# back again → reopened, closed as "not planned" → dismissed. Daily matters even
+# without code changes: new advisories for the locked packages appear every day.
+#
+#   Semgrep        code scanning (rules picked from the files in the repo)
+#   gitleaks       secrets anywhere in the git history
+#   npm/composer   known-vulnerable dependencies, every package-lock.json / composer.lock
+#
+# ci.yml runs the same scanners on every pull request and fails on a finding;
+# this workflow is the standing list of what is open right now.
+name: Security alerts
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # daily
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: security-alerts
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  GITLEAKS_VERSION: 8.30.1
+  SEMGREP_IMAGE: semgrep/semgrep:1.177.0@sha256:acaac22ffc7b7cc5926de0751b223bce0b2491c33d18422fa72f632c78d81198
+
+jobs:
+  scan:
+    name: Scan and sync alerts
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write # open / close / reopen the alert issues
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: What the repository contains
+        id: stack
+        run: |
+          lock() { git ls-files -- "$1" "*/$1" | grep -vE '(^|/)(node_modules|vendor)/' | xargs -r -n1 dirname | sort -u | tr '\n' ' '; }
+          has() { [ -n "$(git ls-files -- "$@" | head -1)" ]; }
+          rules="p/secrets p/github-actions"
+          has package.json '*/package.json' && rules="$rules p/javascript p/typescript p/nodejs"
+          has composer.json '*/composer.json' && rules="$rules p/php"
+          has go.mod '*/go.mod' && rules="$rules p/golang"
+          has 'requirements*.txt' '*/requirements*.txt' pyproject.toml '*/pyproject.toml' && rules="$rules p/python"
+          has '*Dockerfile*' && rules="$rules p/dockerfile"
+          has '*compose*.yml' '*compose*.yaml' && rules="$rules p/docker-compose"
+          { echo "rules=$rules"; echo "npm=$(lock package-lock.json)"; echo "composer=$(lock composer.lock)"; } >> "$GITHUB_OUTPUT"
+
+      - name: Code scanning (Semgrep, pinned image)
+        env:
+          SEMGREP_RULES: ${{ steps.stack.outputs.rules }}
+        run: |
+          # As the runner's user, so the scan can't leave root-owned files in the workspace.
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e SEMGREP_RULES -v "$PWD:/src" -w /src "$SEMGREP_IMAGE" \
+            semgrep scan --metrics=off --quiet --json --output=/src/.semgrep.json || true
+          test -s .semgrep.json
+
+      - name: Secret scanning (gitleaks, pinned + checksum verified)
+        env:
+          ARCH: ${{ runner.arch }}
+        run: |
+          case "$ARCH" in
+            X64)   a=x64;   sha=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb ;;
+            ARM64) a=arm64; sha=e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080 ;;
+            *) echo "::error::no pinned gitleaks build for $ARCH"; exit 1 ;;
+          esac
+          f="gitleaks_${GITLEAKS_VERSION}_linux_${a}.tar.gz"
+          curl -fsSLo "$RUNNER_TEMP/$f" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$f"
+          echo "$sha  $RUNNER_TEMP/$f" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$f" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 0 -f json -r .gitleaks.json .
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.stack.outputs.npm != ''
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        if: steps.stack.outputs.composer != ''
+        with:
+          php-version: "8.4"
+          tools: composer:v2
+          coverage: none
+
+      - name: Dependency advisories (npm, composer)
+        env:
+          NPM_DIRS: ${{ steps.stack.outputs.npm }}
+          COMPOSER_DIRS: ${{ steps.stack.outputs.composer }}
+        run: |
+          args=()
+          for d in $NPM_DIRS; do
+            r="$RUNNER_TEMP/npm-$(echo "$d" | tr '/.' '__').json"
+            (cd "$d" && npm audit --json > "$r") || true
+            args+=(--npm "$d=$r")
+          done
+          for d in $COMPOSER_DIRS; do
+            r="$RUNNER_TEMP/composer-$(echo "$d" | tr '/.' '__').json"
+            (cd "$d" && composer audit --locked --format=json --no-interaction > "$r") || true
+            args+=(--composer "$d=$r")
+          done
+          printf '%s\n' "${args[@]}" > "$RUNNER_TEMP/audit-args"
+
+      - name: Sync security-alert issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          mapfile -t audit < "$RUNNER_TEMP/audit-args"
+          python3 scripts/security-alerts.py --semgrep .semgrep.json --gitleaks .gitleaks.json "${audit[@]}" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
