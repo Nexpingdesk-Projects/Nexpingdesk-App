@@ -81,7 +81,7 @@ jobs:
             *) echo "::error::no pinned gitleaks build for $ARCH"; exit 1 ;;
           esac
           f="gitleaks_${GITLEAKS_VERSION}_linux_${a}.tar.gz"
-          curl -fsSLo "$RUNNER_TEMP/$f" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$f"
+          curl --retry 5 --retry-delay 5 --retry-all-errors -fsSLo "$RUNNER_TEMP/$f" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$f"
           echo "$sha  $RUNNER_TEMP/$f" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/$f" -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 0 -f json -r .gitleaks.json .
