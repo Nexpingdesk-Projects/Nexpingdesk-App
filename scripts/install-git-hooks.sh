@@ -22,7 +22,7 @@ else
   if [ ! -x "$bin" ]; then
     mkdir -p "$cache"
     f="gitleaks_${VERSION}_${PLAT}.tar.gz"
-    curl --retry 10 --retry-delay 10 --retry-all-errors -fsSLo "$cache/$f" "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/$f"
+    "$(git rev-parse --show-toplevel)/.github/scripts/ghdl.sh" "$cache/$f" "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/$f"
     if command -v sha256sum >/dev/null; then
       echo "$SHA  $cache/$f" | sha256sum -c - >/dev/null
     else
