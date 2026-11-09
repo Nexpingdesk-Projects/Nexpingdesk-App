@@ -56,9 +56,9 @@ RUN set -eux; \
 RUN set -eux; \
     arch="$(dpkg --print-architecture)"; case "$arch" in amd64) n=x64;; arm64) n=arm64;; *) exit 1;; esac; \
     base="https://nodejs.org/dist/latest-v${NODE_MAJOR}.x"; \
-    curl -fsSLO "$base/SHASUMS256.txt"; \
+    curl --retry 10 --retry-delay 10 --retry-all-errors -fsSLO "$base/SHASUMS256.txt"; \
     file="$(grep -o "node-v[0-9.]*-linux-${n}.tar.xz" SHASUMS256.txt | head -n1)"; \
-    curl -fsSLO "$base/$file"; \
+    curl --retry 10 --retry-delay 10 --retry-all-errors -fsSLO "$base/$file"; \
     grep " $file\$" SHASUMS256.txt | sha256sum -c -; \
     tar -xJf "$file" -C /usr/local --strip-components=1 --no-same-owner; \
     rm -f "$file" SHASUMS256.txt; \
