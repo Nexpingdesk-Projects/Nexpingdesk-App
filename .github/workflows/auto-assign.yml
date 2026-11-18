@@ -1,0 +1,79 @@
+# Auto-assign — every issue and pull request still waiting on a human is assigned
+# to the owner, so GitHub notifies them (default soykot360; override with the
+# repository or organization variable AUTO_ASSIGNEE).
+#
+#   issue opened / reopened            → assigned
+#   CI finished on a pull request:
+#     failed (or timed out, ...)       → assigned
+#     passed, but no auto-merge queued → assigned (a major update, a stuck PR)
+#     passed with auto-merge queued    → left alone (it merges itself)
+#   daily sweep + manual run           → every open, unassigned issue, and every
+#                                        open PR with no auto-merge queued
+#
+# The sweep also catches issues opened by workflows (security-alert issues):
+# GitHub fires no "issues" event for those. No code is checked out; only the
+# API is used, with values passed through env (no ${{ }} inside run:).
+name: Auto-assign
+
+on:
+  issues:
+    types: [opened, reopened]
+  workflow_run:
+    # Names of the PR check workflows across the repos; names that don't exist are ignored.
+    workflows: ["CI", "Checks — security, code scanning, quality"]
+    types: [completed]
+  schedule:
+    - cron: "47 3 * * *" # daily, after the security-alerts scan
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  assign:
+    name: Assign to the owner
+    # workflow_run: pull-request runs only; cancelled/skipped runs were superseded, not failed.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.conclusion != 'cancelled' &&
+       github.event.workflow_run.conclusion != 'skipped')
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      issues: write # assign issues
+      pull-requests: write # assign pull requests
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ME: ${{ vars.AUTO_ASSIGNEE || 'soykot360' }}
+      EVENT: ${{ github.event_name }}
+      ISSUE: ${{ github.event.issue.number }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+    steps:
+      - name: Assign
+        run: |
+          set -euo pipefail
+          assign() { # assign <issue|pr> <number>
+            gh "$1" edit "$2" --add-assignee "$ME" >/dev/null && echo "assigned $1 #$2 to $ME"
+          }
+          case "$EVENT" in
+            issues)
+              assign issue "$ISSUE" ;;
+            workflow_run)
+              # The run's pull_requests list is empty for some PRs; ask by commit instead.
+              for pr in $(gh api "repos/$GH_REPO/commits/$HEAD_SHA/pulls" --jq '.[] | select(.state == "open") | .number'); do
+                if [ "$CONCLUSION" != success ]; then
+                  assign pr "$pr"
+                elif [ "$(gh pr view "$pr" --json autoMergeRequest --jq '.autoMergeRequest == null')" = true ]; then
+                  assign pr "$pr"
+                fi
+              done ;;
+            *) # schedule / workflow_dispatch: sweep
+              for n in $(gh issue list --state open --search 'no:assignee' --limit 500 --json number --jq '.[].number'); do
+                assign issue "$n"
+              done
+              for n in $(gh pr list --state open --search 'no:assignee' --limit 500 --json number,autoMergeRequest --jq '.[] | select(.autoMergeRequest == null) | .number'); do
+                assign pr "$n"
+              done ;;
+          esac
