@@ -4,7 +4,11 @@
 #
 #   issue opened / reopened            → assigned
 #   CI finished on a pull request:
-#     failed (or timed out, ...)       → assigned
+#     a step failed                    → assigned. Ignored: runs that timed out,
+#                                        were cancelled or skipped, and jobs that
+#                                        stopped without a failed step (out of
+#                                        time, runner lost) or failed only the
+#                                        "Every check must have passed" gate
 #     passed, but no auto-merge queued → assigned (a major update, a stuck PR)
 #     passed with auto-merge queued    → left alone (it merges itself)
 #   daily sweep + manual run           → every open, unassigned issue, and every
@@ -31,15 +35,18 @@ permissions: {}
 jobs:
   assign:
     name: Assign to the owner
-    # workflow_run: pull-request runs only; cancelled/skipped runs were superseded, not failed.
+    # workflow_run: pull-request runs only. Cancelled/skipped runs were superseded and
+    # timed-out runs ran out of runner time; neither is a failure of the PR itself.
     if: >-
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.event == 'pull_request' &&
        github.event.workflow_run.conclusion != 'cancelled' &&
-       github.event.workflow_run.conclusion != 'skipped')
+       github.event.workflow_run.conclusion != 'skipped' &&
+       github.event.workflow_run.conclusion != 'timed_out')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      actions: read # read the CI run's job steps
       issues: write # assign issues
       pull-requests: write # assign pull requests
     env:
@@ -49,6 +56,7 @@ jobs:
       EVENT: ${{ github.event_name }}
       ISSUE: ${{ github.event.issue.number }}
       HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
       CONCLUSION: ${{ github.event.workflow_run.conclusion }}
     steps:
       - name: Assign
@@ -61,6 +69,13 @@ jobs:
             issues)
               assign issue "$ISSUE" ;;
             workflow_run)
+              if [ "$CONCLUSION" != success ]; then
+                # A real failure is a failed step; a job that ran out of time ends its step
+                # "cancelled", a lost runner has no steps, and the gate only echoes the others.
+                failed=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
+                  --jq '[.jobs[].steps[]? | select(.conclusion == "failure" and .name != "Every check must have passed")] | length')
+                [ "$failed" -gt 0 ] || { echo "CI stopped without a failed step (timeout / runner): not assigning"; exit 0; }
+              fi
               # The run's pull_requests list is empty for some PRs; ask by commit instead.
               for pr in $(gh api "repos/$GH_REPO/commits/$HEAD_SHA/pulls" --jq '.[] | select(.state == "open") | .number'); do
                 if [ "$CONCLUSION" != success ]; then
